@@ -56,12 +56,23 @@ services:
 
 ### Create New Strapi Project
 
+Start the container with an empty volume. If no `package.json` is found in `/srv/app`,
+a new project is created automatically via `create-strapi` (matching the image's Strapi version)
+using the `DATABASE_*` environment variables, then started:
+
 ```bash
 docker run -it --rm \
+  -p 1337:1337 \
   -v $(pwd)/my-project:/srv/app \
-  <DOCKER_USERNAME>/strapi:latest \
-  strapi new . --quickstart
+  <DOCKER_USERNAME>/strapi:latest
 ```
+
+Optional variables for project creation:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PACKAGE_MANAGER` | `npm` | `npm`, `yarn` or `pnpm` |
+| `EXTRA_ARGS` | – | Additional `create-strapi` flags, e.g. `--js` |
 
 ## GitHub Actions Setup
 
