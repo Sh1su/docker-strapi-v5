@@ -8,6 +8,8 @@
 name: Publish Docker Image
 
 on:
+  # Manual trigger: rebuild/republish the version in release-versions/strapi-latest.txt
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -25,6 +27,8 @@ concurrency:
 
 jobs:
   build:
+    # Only publish from main, also for manual runs
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
 

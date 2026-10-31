@@ -147,7 +147,7 @@ Automatically checks for new Strapi releases daily and triggers the build proces
 
 Builds and publishes Docker images when a new version is detected.
 
-- **Trigger**: On changes to `release-versions/*` files on `main`
+- **Trigger**: On changes to `release-versions/*` files on `main`, or manually via "Run workflow" (only runs on `main`)
 - **Safety**: The version is validated as semver before any credentials are used; all actions are pinned to commit SHAs
 - **Builds**:
   - Debian variant (default)
@@ -306,6 +306,16 @@ To manually set a specific Strapi version:
 3. Click "Run workflow"
 4. Enter the desired Strapi version (e.g., `5.0.0`)
 5. Click "Run workflow"
+
+### Rebuild the Current Version
+
+To rebuild and republish the version in `release-versions/strapi-latest.txt` (e.g. to pick up base image security fixes):
+
+1. Go to GitHub Actions
+2. Select "Publish Docker Image"
+3. Click "Run workflow" on branch `main`
+
+Or from the command line: `gh workflow run publish-docker-images.yml --ref main`
 
 ## Troubleshooting
 
