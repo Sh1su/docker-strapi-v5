@@ -56,12 +56,48 @@ services:
 
 ### Create New Strapi Project
 
+Start the container with an empty volume. If no `package.json` is found in `/srv/app`,
+a new project is created automatically via `create-strapi` (matching the image's Strapi version)
+using the `DATABASE_*` environment variables, then started:
+
 ```bash
 docker run -it --rm \
+  -p 1337:1337 \
   -v $(pwd)/my-project:/srv/app \
-  <DOCKER_USERNAME>/strapi:latest \
-  strapi new . --quickstart
+  <DOCKER_USERNAME>/strapi:latest
 ```
+
+Optional variables for project creation:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PACKAGE_MANAGER` | `npm` | `npm`, `yarn` or `pnpm` |
+| `EXTRA_ARGS` | – | Additional `create-strapi` flags, e.g. `--js` |
+
+`DATABASE_PASSWORD` is never passed on the `create-strapi` command line (it would be visible in the
+process list); it is written to the generated `.env` from the environment instead.
+
+### Run Mode (`NODE_ENV`)
+
+| `NODE_ENV` | Command |
+|------------|---------|
+| `production` | `strapi start` |
+| `development` or anything else / unset | `strapi develop` |
+
+The default is **development mode**. For any deployment that is reachable from a network,
+set `NODE_ENV=production` (build the admin panel first, e.g. `docker exec <container> npm run build`).
+
+### Running as Non-Root
+
+The image runs as `root` by default. To run as the unprivileged `node` user (uid `1000`),
+make the app directory owned by uid 1000 and start the container with `--user`:
+
+```bash
+sudo chown -R 1000:1000 ./app
+docker run -d -p 1337:1337 --user 1000:1000 -v $(pwd)/app:/srv/app <DOCKER_USERNAME>/strapi:latest
+```
+
+In Docker Compose use `user: "1000:1000"`.
 
 ## GitHub Actions Setup
 
@@ -82,7 +118,7 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 1. Go to [Docker Hub Account Settings](https://hub.docker.com/settings/security)
 2. Click "New Access Token"
 3. Give it a description (e.g., "GitHub Actions")
-4. Set permissions: Read, Write, Delete
+4. Set permissions: Read & Write (Delete is not needed); scope it to the `strapi` repository if possible
 5. Copy the token and add it as `DOCKER_PASSWORD` secret in GitHub
 
 ### Setting Up GitHub PAT
@@ -103,14 +139,16 @@ Automatically checks for new Strapi releases daily and triggers the build proces
 
 - **Schedule**: Runs daily at midnight (UTC)
 - **Manual Trigger**: Can be triggered manually via GitHub Actions UI
-- **Action**: Fetches latest Strapi version from npm and commits to `release-versions/strapi-latest.txt`
+- **Action**: Fetches the Strapi version from the `strapi/strapi` main branch and commits it to `release-versions/strapi-latest.txt`
+- **Safety**: Only stable `X.Y.Z` versions are accepted and the version never goes down
 
 ### 2. Publish Docker Images
 **File**: `.github/workflows/publish-docker-images.yml`
 
 Builds and publishes Docker images when a new version is detected.
 
-- **Trigger**: On changes to `release-versions/*` files
+- **Trigger**: On changes to `release-versions/*` files on `main`
+- **Safety**: The version is validated as semver before any credentials are used; all actions are pinned to commit SHAs
 - **Builds**:
   - Debian variant (default)
   - Alpine variant
@@ -176,9 +214,11 @@ docker build \
 
 ## Environment Variables
 
-The Strapi container supports all standard Strapi environment variables:
+The Strapi container supports all standard Strapi environment variables.
+The values below are **placeholders – always use your own strong, random secrets**:
 
 ```bash
+NODE_ENV=production
 DATABASE_CLIENT=postgres
 DATABASE_HOST=db
 DATABASE_PORT=5432
@@ -276,10 +316,8 @@ Check logs:
 docker logs <container-name>
 ```
 
-Ensure the volume directory has correct permissions:
-```bash
-chmod -R 777 ./app
-```
+Ensure the volume directory is writable by the container user (see Permission Denied Errors below).
+Do **not** use `chmod -R 777`: the container executes code from this directory.
 
 ### Database Connection Issues
 
@@ -291,7 +329,8 @@ docker-compose logs db
 
 ### Permission Denied Errors
 
-The container runs as user `1000:1000`. Ensure your volume directory is writable:
+The container runs as `root` by default. If you run it with `--user 1000:1000`
+(see Running as Non-Root), make the volume directory owned by that user:
 ```bash
 sudo chown -R 1000:1000 ./app
 ```
